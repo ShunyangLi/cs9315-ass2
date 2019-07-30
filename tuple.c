@@ -16,6 +16,9 @@ int tupLength(Tuple t)
 	return strlen(t);
 }
 
+// extracts i'th bit from hash value
+#define bit(i,h) (((h) & (1 << (i))) >> (i))
+
 // reads/parses next tuple in input
 
 Tuple readTuple(Reln r, FILE *in)
@@ -75,10 +78,30 @@ Bits tupleHash(Reln r, Tuple t)
 	char **vals = malloc(nvals*sizeof(char *));
 	assert(vals != NULL);
 	tupleVals(t, vals);
-	Bits hash = hash_any((unsigned char *)vals[0],strlen(vals[0]));
-	bitsString(hash,buf);
-	printf("hash(%s) = %s\n", vals[0], buf);
-	return hash;
+
+	// hash for each attr, and make hash
+	Bits hash[nvals + 1];
+	int i = 0;
+	for (i = 0; i < nvals; i ++) {
+		hash[i] = hash_any((unsigned char *)vals[i],strlen(vals[i]));
+		bitsString(hash[i],buf);
+		printf("hash(%s) = %s\n", vals[i], buf);
+	}
+	
+	// convert reln into ChVecItem
+	Bits res = NO_PAGE, oneBit;
+	ChVecItem *cv = chvec(r);
+
+	// check bits
+	for (i = 0; i < MAXBITS; i ++ ){
+		Bits a = cv[i].att;
+		Bits b = cv[i].bit;
+		// need to fir the bit method
+		oneBit = bit(b, hash[a]);
+        res = res | (oneBit << i);
+	}
+
+	return res;
 }
 
 // compare two tuples (allowing for "unknown" values)
