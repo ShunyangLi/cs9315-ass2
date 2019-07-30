@@ -5,3 +5,5 @@
 *.ko
 *.obj
 *.elf
+.idea/*
+cmake-build-debug/*
