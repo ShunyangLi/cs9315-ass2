@@ -16,9 +16,6 @@ int tupLength(Tuple t)
 	return strlen(t);
 }
 
-// extracts i'th bit from hash value
-#define bit(i,h) (((h) & (1 << (i))) >> (i))
-
 // reads/parses next tuple in input
 
 Tuple readTuple(Reln r, FILE *in)
@@ -89,7 +86,7 @@ Bits tupleHash(Reln r, Tuple t)
 	}
 	
 	// convert reln into ChVecItem
-	Bits res = NO_PAGE, oneBit;
+	Bits res = 0, oneBit;
 	ChVecItem *cv = chvec(r);
 
 	// check bits
@@ -97,10 +94,11 @@ Bits tupleHash(Reln r, Tuple t)
 		Bits a = cv[i].att;
 		Bits b = cv[i].bit;
 		// need to fir the bit method
-		oneBit = bit(b, hash[a]);
+		oneBit = getBit(b,hash[a]);
         res = res | (oneBit << i);
 	}
 
+	free(vals);
 	return res;
 }
 
