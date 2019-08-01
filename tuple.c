@@ -89,15 +89,16 @@ Bits tupleHash(Reln r, Tuple t)
 	}
 	
 	// convert reln into ChVecItem
-	Bits res = 0, oneBit;
+	Bits res = 0;
+	Bits oneBit;
 	ChVecItem *cv = chvec(r);
 
 	// check bits
 	for (i = 0; i < MAXBITS; i ++ ){
-		Bits a = cv[i].att;
-		Bits b = cv[i].bit;
+		Bits att = cv[i].att;
+		Bits bit = cv[i].bit;
 		// need to fir the bit method
-		oneBit = getBit(b,hash[a]);
+		oneBit = getBit(bit,hash[att]);
         res = res | (oneBit << i);
 	}
 	free(vals);
