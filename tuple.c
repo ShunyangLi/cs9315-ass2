@@ -77,12 +77,15 @@ Bits tupleHash(Reln r, Tuple t)
 	tupleVals(t, vals);
 
 	// hash for each attr, and make hash
+	printf("hash(");
 	Bits hash[nvals + 1];
 	int i = 0;
 	for (i = 0; i < nvals; i ++) {
 		hash[i] = hash_any((unsigned char *)vals[i],strlen(vals[i]));
-		bitsString(hash[i],buf);
-		printf("hash(%s) = %s\n", vals[i], buf);
+		printf("%s",vals[i]);
+
+		if (i == nvals - 1) printf(") = ");
+		else printf(",");
 	}
 	
 	// convert reln into ChVecItem
@@ -97,8 +100,9 @@ Bits tupleHash(Reln r, Tuple t)
 		oneBit = getBit(b,hash[a]);
         res = res | (oneBit << i);
 	}
-
 	free(vals);
+	bitsString(res,buf);
+	printf("%s\n",buf);
 	return res;
 }
 

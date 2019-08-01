@@ -18,6 +18,8 @@ struct QueryRep {
 	int     is_ovflow; // are we in the overflow pages?
 	Offset  curtup;    // offset of current tuple within page
 	//TODO: make struture
+	Tuple   tuple;
+	Bits    currHash;
 };
 
 // take a query string (e.g. "1234,?,abc,?")
