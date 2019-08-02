@@ -21,9 +21,9 @@ struct QueryRep {
 	int     is_ovflow; // are we in the overflow pages?
 	Offset  curtup;    // offset of current tuple within page
 	//TODO:
+    Bits 	hashVal;
 	Tuple   queryString;
-	Count   tupleNum;
-	Bits 	hashVal;
+	// Count   tupleNum;
 };
 
 // take a query string (e.g. "1234,?,abc,?")
@@ -41,6 +41,11 @@ Query startQuery(Reln r, char *q)
 
 	Query query = malloc(sizeof(struct QueryRep));
 	assert(query != NULL);
+    query->rel = r;
+    query->is_ovflow = FALSE;
+    query->curtup = 0;
+    query->queryString = q;
+
 	// init the attr
 	Bits pageId;
 	int DataDepth = depth(r);
@@ -70,6 +75,11 @@ Query startQuery(Reln r, char *q)
 		if (!strcmp(vals[att], "?")) unknownValue = setBit(unknownValue,i);
 	}
 
+	// setup the unknown and knwon values
+    query->known = knownValue;
+    query->unknown = unknownValue;
+    query->hashVal = knownValue;
+
 	// compute the page id according to the known value
     pageId = getLower(knownValue, DataDepth);
 	// check whether use known value or unknown value
@@ -77,16 +87,7 @@ Query startQuery(Reln r, char *q)
         pageId = getLower(unknownValue, DataDepth+1);
 	}
 
-    query->rel = r;
-	query->known = knownValue;
-	query->unknown = unknownValue;
 	query->curpage = pageId;
-	query->is_ovflow = FALSE;
-	query->curtup = 0;
-	query->tupleNum = 0;
-	query->queryString = q;
-	query->hashVal = knownValue;
-
 
 	return query;
 }
@@ -135,7 +136,7 @@ Tuple getNextTuple(Query q)
 		q->curpage = pageOvflow(page);
 		q->is_ovflow = TRUE;
 		q->curtup = 0;
-		q->tupleNum = 0;
+		// q->tupleNum = 0;
 		// printf("OverFlow\n\n");
 		// iterator again
         return getNextTuple(q);
@@ -162,9 +163,9 @@ Tuple getNextTuple(Query q)
 					temp = temp | q->known;
 					// ready for next iterator
 					if (temp != q->hashVal) {
+                        q->curtup = 0;
+                        q->is_ovflow = FALSE;
 						q->hashVal = temp;
-						q->is_ovflow = FALSE;
-						q->curtup = 0;
 						// compute the current page
 						Count depthRel = depth(q->rel);
 						Bits b = getLower(temp, depthRel);
