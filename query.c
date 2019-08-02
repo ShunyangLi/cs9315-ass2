@@ -8,6 +8,9 @@
 #include "reln.h"
 #include "tuple.h"
 
+#include "bits.h"
+#include "hash.h"
+
 // A suggestion ... you can change however you like
 
 struct QueryRep {
@@ -17,9 +20,10 @@ struct QueryRep {
 	PageID  curpage;   // current page in scan
 	int     is_ovflow; // are we in the overflow pages?
 	Offset  curtup;    // offset of current tuple within page
-	//TODO: make struture
-	Tuple   tuple;
-	Bits    currHash;
+	//TODO:
+	Tuple   queryString;
+	Count   tupleNum;
+	Bits 	hashVal;
 };
 
 // take a query string (e.g. "1234,?,abc,?")
@@ -27,16 +31,64 @@ struct QueryRep {
 
 Query startQuery(Reln r, char *q)
 {
-	Query new = malloc(sizeof(struct QueryRep));
-	assert(new != NULL);
-	// TODO: 
-	// Partial algorithm:
-	// form known bits from known attributes
-	// form unknown bits from '?' attributes
-	// compute PageID of first page
-	//   using known bits and first "unknown" value
-	// set all values in QueryRep object
-	return new;
+    // TODO:
+    // Partial algorithm:
+    // form known bits from known attributes
+    // form unknown bits from '?' attributes
+    // compute PageID of first page
+    //   using known bits and first "unknown" value
+    // set all values in QueryRep object
+
+	Query query = malloc(sizeof(struct QueryRep));
+	assert(query != NULL);
+	// init the attr
+	Bits pageId;
+	int DataDepth = depth(r);
+	ChVecItem *cv = chvec(r);
+	Count nvals = nattrs(r);
+	char **vals = malloc(nvals*sizeof(char *));
+	assert(vals != NULL);
+	tupleVals(q, vals);
+
+	Bits hash[nvals + 1];
+	Bits knownValue = 0;
+	Bits unknownValue = 0;
+	int i = 0;
+
+	// hash all the value, if 0, then was unknown, otherwise is known
+	for (i = 0; i < nvals; i ++) {
+		if (!strcmp(vals[i], "?")) hash[i] = 0;
+		else hash[i] = hash_any((unsigned char *)vals[i],strlen(vals[i]));
+	}
+
+	for (i = 0; i < MAXBITS; i ++) {
+		Bits att = cv[i].att;
+		Bits bit = cv[i].bit;
+		// form the known value
+		if (bitIsSet(hash[att],bit)) knownValue = setBit(knownValue,i);
+		// form the unknown value
+		if (!strcmp(vals[att], "?")) unknownValue = setBit(unknownValue,i);
+	}
+
+	// compute the page id according to the known value
+    pageId = getLower(knownValue, DataDepth);
+	// check whether use known value or unknown value
+	if (pageId < splitp(r)) {
+        pageId = getLower(unknownValue, DataDepth+1);
+	}
+
+    query->rel = r;
+	query->known = knownValue;
+	query->unknown = unknownValue;
+	query->curpage = pageId;
+	query->is_ovflow = FALSE;
+	query->curtup = 0;
+	query->tupleNum = 0;
+	query->queryString = q;
+	query->hashVal = knownValue;
+
+
+	return query;
 }
 
 // get next tuple during a scan
@@ -57,11 +109,81 @@ Tuple getNextTuple(Query q)
 	// if (current page has no matching tuples)
 	//    go to next page (try again)
 	// endif
+	Page page = getPage(dataFile(q->rel),q->curpage);
+
+	// set the page according to whether overflow
+	if (q->is_ovflow) page = getPage(ovflowFile(q->rel),q->curpage);
+
+    // check whether in current page
+	for (;q->curtup < pageOffset(page);) {
+		Tuple tuple = pageData(page) + q->curtup;
+		Count tuplelength = tupLength(tuple);
+		q->curtup += tuplelength + 1;
+		// if we can find the match, then we got the result
+		if (tupleMatch(q->rel, tuple,q->queryString)) {
+			return strdup(tuple);
+		}
+	}
+
+	if (pageOvflow(page) != NO_PAGE) {
+		// reset the query
+		q->curpage = pageOvflow(page);
+		q->is_ovflow = TRUE;
+		q->curtup = 0;
+		q->tupleNum = 0;
+		// printf("OverFlow\n\n");
+		// iterator again
+		getNextTuple(q);
+	} else {
+
+		Bits mask;
+		// init the mask
+		mask = (1<<depth(q->rel)) - 1;
+		if (splitp(q->rel) > 0) {
+			mask = (1<<(depth(q->rel)+1))-1;
+		}
+
+		if (mask & q->known) {
+			q->known = q->known&mask;
+			q->unknown = q->unknown&mask;
+			q->hashVal = q->hashVal&mask;
+
+			Bits hashCompare = (q->known|q->unknown);
+
+			if (q->hashVal != hashCompare) {
+
+				Bits oneBit = q->hashVal+1;
+				while (oneBit <= hashCompare) {
+
+					Bits temp = oneBit & q->unknown;
+					temp = temp | q->known;
+					// ready for next iterator
+					if (temp != q->hashVal) {
+						q->hashVal = temp;
+						q->is_ovflow = FALSE;
+						q->curtup = 0;
+
+						Count depthRel = depth(q->rel);
+						Bits b = getLower(temp, depthRel);
+						Bits b1 = getLower(temp, depthRel+1);
+
+						Bits hash = (b < splitp(q->rel))?b:b1;
+
+						if (hash != q->curpage) {
+							q->curpage = hash;
+							getNextTuple(q);
+						}
+					}
+					oneBit++;
+				}
+			}
+		}
+
+	}
 	return NULL;
 }
 
 // clean up a QueryRep object and associated data
-
 void closeQuery(Query q)
 {
 	// TODO: 

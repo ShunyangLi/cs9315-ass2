@@ -97,6 +97,7 @@ char *pageData(Page p) { return p->data; }
 Count pageNTuples(Page p) { return p->ntuples; }
 Offset pageOvflow(Page p) { return p->ovflow; }
 void pageSetOvflow(Page p, PageID pid) { p->ovflow = pid; }
+Count pageOffset(Page p) { return p->free;}
 Count pageFreeSpace(Page p) {
 	Count hdr_size = 2*sizeof(Offset) + sizeof(Count);
 	return (PAGESIZE-hdr_size-p->free);

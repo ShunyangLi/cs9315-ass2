@@ -21,5 +21,5 @@ Count pageNTuples(Page);
 Offset pageOvflow(Page);
 void pageSetOvflow(Page, PageID);
 Count pageFreeSpace(Page);
-
+Count pageOffset(Page);
 #endif
