@@ -80,12 +80,12 @@ Query startQuery(Reln r, char *q)
     query->unknown = unknownValue;
     query->hashVal = knownValue;
 
-	// compute the page id according to the known value
-    pageId = getLower(knownValue, DataDepth);
-	// check whether use known value or unknown value
-	if (pageId < splitp(r)) {
-        pageId = getLower(unknownValue, DataDepth+1);
-	}
+
+    Bits lowerValue = getLower(knownValue, DataDepth);
+    Bits lowerNext = getLower(unknownValue, DataDepth+1);
+
+    // get the page values
+    pageId = (lowerValue < splitp(r))?lowerNext:lowerValue;
 
 	query->curpage = pageId;
 
@@ -133,8 +133,8 @@ Tuple getNextTuple(Query q)
 
 	if (pageOvflow(page) != NO_PAGE) {
 		// reset the query
+        q->is_ovflow = TRUE;
 		q->curpage = pageOvflow(page);
-		q->is_ovflow = TRUE;
 		q->curtup = 0;
 		// q->tupleNum = 0;
 		// printf("OverFlow\n\n");
@@ -168,11 +168,11 @@ Tuple getNextTuple(Query q)
 						q->hashVal = temp;
 						// compute the current page
 						Count depthRel = depth(q->rel);
-						Bits b = getLower(temp, depthRel);
-						Bits b1 = getLower(temp, depthRel+1);
+						Bits lowerValue = getLower(temp, depthRel);
+						Bits lowerNext = getLower(temp, depthRel+1);
                         // compare to the current page, if not the current page
                         // then grab first matching tuple from page
-						Bits currentPage = (b < splitp(q->rel))?b:b1;
+						Bits currentPage = (lowerValue < splitp(q->rel))?lowerNext:lowerValue;
 						if (currentPage != q->curpage) {
 						    // setup the curpage and start iterator
 							q->curpage = currentPage;
