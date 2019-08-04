@@ -25,6 +25,8 @@ struct RelnRep {
 	FILE  *ovflow; // handle on ovflow file
 };
 
+static void splitPage(Reln, Page, PageID, Page, Page);
+
 // create a new relation (three files)
 
 Status newRelation(char *name, Count nattrs, Count npages, Count d, char *cv)
@@ -121,9 +123,93 @@ void closeRelation(Reln r)
 // returns NO_PAGE if insert fails completely
 // TODO: include splitting and file expansion
 
+/*
+ * learned Splitting algorithm from lec
+    newp = sp + 2^d; oldp = sp;
+    for all tuples t in P[oldp] and its overflows {
+        p = bits(d+1,hash(t.k));
+        if (p == newp)
+            add tuple t to bucket[newp]
+        else
+            add tuple t to bucket[oldp]
+    }
+    sp++;
+    if (sp == 2^d) { d++; sp = 0; }
+ */
+
+/**
+ * split the page according to the params
+ * @param r Reln
+ * @param page the page of free
+ * @param newp = sp + 2^d
+ * @param sPage split page
+ * @param nPage new page of split
+ */
+static void splitPage(Reln r, Page page, PageID newp, Page sPage, Page nPage) {
+    // TODO make split page
+
+    Offset pages = 0;
+    Count offset = pageOffset(page);
+    while (pages < offset) {
+        Tuple t = pageData(page) + pages;
+        PageID p = getLower(tupleHash(r,t),r->depth+1);
+
+        if (p == newp) addToPage(sPage, t);
+        else if (p == r->sp) addToPage(nPage,t);
+
+        pages += tupLength(t) + 1;
+    }
+
+    putPage(r->data,r->sp, nPage);
+    putPage(r->data, newp, sPage);
+
+}
+
 PageID addToRelation(Reln r, Tuple t)
 {
 	Bits h, p;
+	// get the capacity firstly
+	Count capacity = (Count) (PAGESIZE/(10*r->nattrs));
+	// setup whether split files
+	if (r->ntups != 0) {
+	    if (r->ntups % capacity == 0) {
+	        // count the new page
+	        Offset d = (1<<(r->depth));
+            PageID newp = r->sp + d;
+            // setup old page
+            PageID oldp = r->sp;
+
+            // set the next as overflow
+            PageID i = addPage(r->data);
+            while (i < newp) {
+                i = addPage(r->data);
+            }
+
+            Page page = getPage(r->data, oldp);
+            Page nPage = newPage();
+            pageSetOvflow(nPage,pageOvflow(page));
+
+            // according to the new page, get the split pages
+            splitPage(r, page, newp, getPage(r->data, newp), nPage);
+
+            // check whether overflow
+            Offset overflow = pageOvflow(page);
+            if (overflow != NO_PAGE) {
+                // splite the page
+                nPage = getPage(r->data, r->sp);
+                page = getPage(r->ovflow, overflow);
+                splitPage(r,page, newp, getPage(r->data, newp),nPage);
+
+            }
+            r->sp++;
+            r->npages++ ;
+            if (r->sp == d) {
+                r->sp = 0;
+                r->depth ++;
+            }
+	    }
+	}
+
 	// char buf[MAXBITS+1];
 	h = tupleHash(r,t);
 	if (r->depth == 0)

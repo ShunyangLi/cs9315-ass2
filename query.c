@@ -82,8 +82,9 @@ Query startQuery(Reln r, char *q)
 
 
     Bits lowerValue = getLower(knownValue, DataDepth);
-    Bits lowerNext = getLower(unknownValue, DataDepth+1);
+    Bits lowerNext = getLower(knownValue, DataDepth);
 
+    // printf("here: %u, %u\n",lowerValue,lowerNext);
     // get the page values
     pageId = (lowerValue < splitp(r))?lowerNext:lowerValue;
 
