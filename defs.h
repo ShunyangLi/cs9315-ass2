@@ -22,6 +22,8 @@
 #define OK          0
 #define TRUE        1
 #define FALSE       0
+#define ZERO        0x0
+#define ONE         0x1
 
 // extracts i'th bit from hash value
 #define getBit(position,hash) (((hash) & (1 << (position))) >> (position))

@@ -143,23 +143,27 @@ void closeRelation(Reln r)
  * @param page the page of free
  * @param newp = sp + 2^d
  * @param sPage split page
- * @param nPage new page of split
+ * @param nPage the new page page of split(r->sp)
  */
 static void splitPage(Reln r, Page page, PageID newp, Page sPage, Page nPage) {
     // TODO make split page
 
-    Offset pages = 0;
+    Offset pages = ZERO;
     Count offset = pageOffset(page);
     while (pages < offset) {
+        // get tuples
         Tuple t = pageData(page) + pages;
-        PageID p = getLower(tupleHash(r,t),r->depth+1);
-
+        // plus 1 because '\n'
+        pages += tupLength(t) + ONE;
+        // p = getLower(tupHash, depth+1)
+        PageID p = getLower(tupleHash(r,t),depth(r)+ONE);
+        // if p == newp then add bucket of new page
+        // else add to the old page
         if (p == newp) addToPage(sPage, t);
-        else if (p == r->sp) addToPage(nPage,t);
-
-        pages += tupLength(t) + 1;
+        else addToPage(nPage,t);
     }
 
+    // put the new pages
     putPage(r->data,r->sp, nPage);
     putPage(r->data, newp, sPage);
 
@@ -171,10 +175,10 @@ PageID addToRelation(Reln r, Tuple t)
 	// get the capacity firstly
 	Count capacity = (Count) (PAGESIZE/(10*r->nattrs));
 	// setup whether split files
-	if (r->ntups != 0) {
-	    if (r->ntups % capacity == 0) {
+	if (r->ntups != OK) {
+	    if (r->ntups % capacity == OK) {
 	        // count the new page
-	        Offset d = (1<<(r->depth));
+	        Offset d = (ONE<<(r->depth));
             PageID newp = r->sp + d;
             // setup old page
             PageID oldp = r->sp;
@@ -204,7 +208,7 @@ PageID addToRelation(Reln r, Tuple t)
             r->sp++;
             r->npages++ ;
             if (r->sp == d) {
-                r->sp = 0;
+                r->sp = ZERO;
                 r->depth ++;
             }
 	    }
