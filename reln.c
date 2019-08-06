@@ -146,8 +146,6 @@ void closeRelation(Reln r)
  * @param nPage the new page page of split(r->sp)
  */
 static void splitPage(Reln r, Page page, PageID newp, Page sPage, Page nPage) {
-    // TODO make split page
-
     Offset pages = ZERO;
     Count offset = pageOffset(page);
     while (pages < offset) {
@@ -163,10 +161,9 @@ static void splitPage(Reln r, Page page, PageID newp, Page sPage, Page nPage) {
         else addToPage(nPage,t);
     }
 
-    // put the new pages
+    // put the new page
     putPage(r->data,r->sp, nPage);
     putPage(r->data, newp, sPage);
-
 }
 
 PageID addToRelation(Reln r, Tuple t)
@@ -191,7 +188,7 @@ PageID addToRelation(Reln r, Tuple t)
 
             Page page = getPage(r->data, oldp);
             Page nPage = newPage();
-            pageSetOvflow(nPage,pageOvflow(page));
+            // pageSetOvflow(nPage,pageOvflow(page));
 
             // according to the new page, get the split pages
             splitPage(r, page, newp, getPage(r->data, newp), nPage);
@@ -203,8 +200,8 @@ PageID addToRelation(Reln r, Tuple t)
                 nPage = getPage(r->data, r->sp);
                 page = getPage(r->ovflow, overflow);
                 splitPage(r,page, newp, getPage(r->data, newp),nPage);
-
             }
+
             r->sp++;
             r->npages++ ;
             if (r->sp == d) {
