@@ -28,6 +28,7 @@ struct RelnRep {
 static Tuple* getTuples(Reln r);
 static int getTupleNum(Reln r);
 static void cleanPage(Reln reln);
+static PageID insertTuplesToPage(Reln r, Tuple t, PageID);
 
 // create a new relation (three files)
 
@@ -186,6 +187,65 @@ static void cleanPage(Reln reln) {
     }
 }
 
+static PageID insertTuplesToPage(Reln r, Tuple t, PageID p) {
+
+    Page pg = getPage(r->data,p);
+    if (addToPage(pg,t) == OK) {
+        putPage(r->data,p,pg);
+        // r->ntups++;
+        return p;
+    }
+    // primary data page full
+    if (pageOvflow(pg) == NO_PAGE) {
+        // add first overflow page in chain
+        PageID newp = addPage(r->ovflow);
+        pageSetOvflow(pg,newp);
+        putPage(r->data,p,pg);
+        Page newpg = getPage(r->ovflow,newp);
+        // can't add to a new page; we have a problem
+        if (addToPage(newpg,t) != OK) return NO_PAGE;
+        putPage(r->ovflow,newp,newpg);
+        // r->ntups++;
+        return p;
+    }
+    else {
+        // scan overflow chain until we find space
+        // worst case: add new ovflow page at end of chain
+        Page ovpg, prevpg = NULL;
+        PageID ovp, prevp = NO_PAGE;
+        ovp = pageOvflow(pg);
+        while (ovp != NO_PAGE) {
+            ovpg = getPage(r->ovflow, ovp);
+            if (addToPage(ovpg,t) != OK) {
+                prevp = ovp; prevpg = ovpg;
+                ovp = pageOvflow(ovpg);
+            }
+            else {
+                if (prevpg != NULL) free(prevpg);
+                putPage(r->ovflow,ovp,ovpg);
+                // r->ntups++;
+                return p;
+            }
+        }
+        // all overflow pages are full; add another to chain
+        // at this point, there *must* be a prevpg
+        assert(prevpg != NULL);
+        // make new ovflow page
+        PageID newp = addPage(r->ovflow);
+        // insert tuple into new page
+        Page newpg = getPage(r->ovflow,newp);
+        if (addToPage(newpg,t) != OK) return NO_PAGE;
+        putPage(r->ovflow,newp,newpg);
+        // link to existing overflow chain
+        pageSetOvflow(prevpg,newp);
+        putPage(r->ovflow,prevp,prevpg);
+        // r->ntups++;
+        return p;
+    }
+    return NO_PAGE;
+
+}
+
 
 PageID addToRelation(Reln r, Tuple t)
 {
@@ -205,25 +265,25 @@ PageID addToRelation(Reln r, Tuple t)
             // ready to split
             PageID newp = (1<<depth(r)) + r->sp;
             // split page
-            Page splitpage = getPage(r->data, r->sp);
+            // Page splitpage = getPage(r->data, r->sp);
             // new page
-            Page newpage = newPage();
+            // Page newpage = newPage();
 
+            // add a new page into data page
+            PageID id = addPage(r->data);
 
             // try to add all the tuples
             for (int i = 0;i < num; i ++) {
                 PageID pageID = getLower(tupleHash(r, tuple[i]), depth(r)+1);
 
                 if (pageID == newp) {
-                	addToPage(newpage, tuple[i]);
+                	// addToPage(newpage, tuple[i]);
+                	insertTuplesToPage(r,tuple[i],id);
                 } else {
-                	addToPage(splitpage, tuple[i]);
+                	// addToPage(splitpage, tuple[i]);
+                	insertTuplesToPage(r, tuple[i], r->sp);
                 }
             }
-
-            putPage(r->data, r->sp, splitpage);
-            putPage(r->data, newp, newpage);
-
 
             r->sp++;
             r->npages++ ;
