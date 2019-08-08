@@ -119,7 +119,7 @@ Tuple getNextTuple(Query q)
 	// set the page according to whether overflow
 	// if (q->is_ovflow) page = getPage(ovflowFile(q->rel),q->curpage);
 
-	// printf("overflow: %u, %u\n", q->overflow, q->curpage);
+	//  printf("overflow: %u, %u\n", q->overflow, q->curpage);
 
     Page page = getPage(dataFile(q->rel),q->curpage);
     if (q->is_ovflow) page = getPage(ovflowFile(q->rel), q->overflow);
@@ -168,14 +168,15 @@ Tuple getNextTuple(Query q)
             index++;
 	    }
 
-	    hash = getLower(hash,depth(r));
-	    if (hash < splitp(r)) hash = getLower(hash,depth(r)+1);
+//	    hash = getLower(hash,depth(r));
+//	    if (hash < splitp(r)) hash = getLower(hash,depth(r)+1);
 
-        if (hash > q->curpage) {
+	    // printf("page: %u,%u\n",hash, q->curpage);
+        if (hash > q->curpage && hash < npages(r)) {
 	        q->curpage = hash;
 	        q->is_ovflow = FALSE;
 	        q->overflow = ZERO;
-	        q->curtup = ONE;
+	        q->curtup = ZERO;
             return getNextTuple(q);
 	    }
 
