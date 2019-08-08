@@ -25,7 +25,9 @@ struct RelnRep {
 	FILE  *ovflow; // handle on ovflow file
 };
 
-static void splitPage(Reln, Page, PageID, Page, Page);
+static Tuple* getTuples(Reln r);
+static int getTupleNum(Reln r);
+static void cleanPage(Reln reln);
 
 // create a new relation (three files)
 
@@ -123,88 +125,109 @@ void closeRelation(Reln r)
 // returns NO_PAGE if insert fails completely
 // TODO: include splitting and file expansion
 
-/*
- * learned Splitting algorithm from lec
-    newp = sp + 2^d; oldp = sp;
-    for all tuples t in P[oldp] and its overflows {
-        p = bits(d+1,hash(t.k));
-        if (p == newp)
-            add tuple t to bucket[newp]
-        else
-            add tuple t to bucket[oldp]
+static int getTupleNum(Reln r) {
+    int num = 0;
+    Page page = getPage(r->data, r->sp);
+    num += pageNTuples(page);
+    Offset overflow = pageOvflow(page);
+    while (overflow != NO_PAGE) {
+        page = getPage(r->ovflow, overflow);
+        num += pageNTuples(page);
+        overflow = pageOvflow(page);
+        free(page);
     }
-    sp++;
-    if (sp == 2^d) { d++; sp = 0; }
- */
-
-/**
- * split the page according to the params
- * @param r Reln
- * @param page the page of free
- * @param newp = sp + 2^d
- * @param sPage split page
- * @param nPage the new page page of split(r->sp)
- */
-static void splitPage(Reln r, Page page, PageID newp, Page sPage, Page nPage) {
-    Offset pages = ZERO;
-    Count offset = pageOffset(page);
-    while (pages < offset) {
-        // get tuples
-        Tuple t = pageData(page) + pages;
-        // plus 1 because '\n'
-        pages += tupLength(t) + ONE;
-        // p = getLower(tupHash, depth+1)
-        PageID p = getLower(tupleHash(r,t),depth(r)+ONE);
-        // if p == newp then add bucket of new page
-        // else add to the old page
-        if (p == newp) addToPage(sPage, t);
-        else addToPage(nPage,t);
-    }
-
-    // put the new page
-    putPage(r->data,r->sp, nPage);
-    putPage(r->data, newp, sPage);
+    return num;
 }
+
+static Tuple* getTuples(Reln r) {
+    int nums = getTupleNum(r);
+    Offset offset = 0;
+    int i = 0;
+    Tuple *tuple = malloc(sizeof(Tuple*)*nums);
+    Page page = getPage(r->data,r->sp);
+
+    while (offset < pageOffset(page)) {
+        Tuple t = pageData(page) + offset;
+        offset += tupLength(t) + 1;
+        tuple[i] = t;
+        i ++;
+    }
+
+    Offset overflow = pageOvflow(page);
+    while (overflow != NO_PAGE) {
+        page = getPage(r->ovflow, overflow);
+        offset = 0;
+        while (offset < pageOffset(page)) {
+            Tuple t = pageData(page) + offset;
+            offset += tupLength(t) + 1;
+            tuple[i] = t;
+            i ++;
+        }
+        overflow = pageOvflow(page);
+    }
+
+    return tuple;
+}
+
+static void cleanPage(Reln reln) {
+    Page newpage = newPage();
+    Page page = getPage(reln->data,reln->sp);
+    Offset ov = pageOvflow(page);
+    pageSetOvflow(newpage, ov);
+    putPage(reln->data, reln->sp, newpage);
+
+    while (ov != NO_PAGE) {
+        page = getPage(reln->ovflow, ov);
+
+        newpage = newPage();
+        pageSetOvflow(newpage,pageOvflow(page));
+        putPage(reln->ovflow,ov, newpage);
+        ov = pageOvflow(page);
+    }
+}
+
 
 PageID addToRelation(Reln r, Tuple t)
 {
 	Bits h, p;
-	// get the capacity firstly
+//	// get the capacity firstly
 	Count capacity = (Count) (PAGESIZE/(10*r->nattrs));
 	// setup whether split files
 	if (r->ntups != OK) {
 	    if (r->ntups % capacity == OK) {
 	        // count the new page
-	        Offset d = (ONE<<(r->depth));
-            PageID newp = r->sp + d;
-            // setup old page
-            PageID oldp = r->sp;
+            int num = getTupleNum(r);
+            // get all the tuples
+            Tuple *tuple = getTuples(r);
+            // clean data page
+            cleanPage(r);
 
-            // set the next as overflow
-            PageID i = addPage(r->data);
-            while (i < newp) {
-                i = addPage(r->data);
+            // ready to split
+            PageID newp = (1<<depth(r)) + r->sp;
+            // split page
+            Page splitpage = getPage(r->data, r->sp);
+            // new page
+            Page newpage = newPage();
+
+
+            // try to add all the tuples
+            for (int i = 0;i < num; i ++) {
+                PageID pageID = getLower(tupleHash(r, tuple[i]), depth(r)+1);
+
+                if (pageID == newp) {
+                	addToPage(newpage, tuple[i]);
+                } else {
+                	addToPage(splitpage, tuple[i]);
+                }
             }
 
-            Page page = getPage(r->data, oldp);
-            Page nPage = newPage();
-            // pageSetOvflow(nPage,pageOvflow(page));
+            putPage(r->data, r->sp, splitpage);
+            putPage(r->data, newp, newpage);
 
-            // according to the new page, get the split pages
-            splitPage(r, page, newp, getPage(r->data, newp), nPage);
-
-            // check whether overflow
-            Offset overflow = pageOvflow(page);
-            if (overflow != NO_PAGE) {
-                // splite the page
-                nPage = getPage(r->data, r->sp);
-                page = getPage(r->ovflow, overflow);
-                splitPage(r,page, newp, getPage(r->data, newp),nPage);
-            }
 
             r->sp++;
             r->npages++ ;
-            if (r->sp == d) {
+            if (r->sp == (1<<(depth(r)))) {
                 r->sp = ZERO;
                 r->depth ++;
             }
