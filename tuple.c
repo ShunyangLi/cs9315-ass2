@@ -8,7 +8,15 @@
 #include "hash.h"
 #include "chvec.h"
 #include "bits.h"
+#include <assert.h>
 
+Bits getBits(Bits, Bits);
+// extracts i'th bit from hash value
+Bits getBits(Bits position, Bits hash) {
+    assert(0 <= position && position <= 31);
+    Bits temp = ((hash) & (1 << (position)));
+    return (temp >> position);
+}
 // return number of bytes/chars in a tuple
 
 int tupLength(Tuple t)
@@ -98,7 +106,7 @@ Bits tupleHash(Reln r, Tuple t)
 		Bits att = cv[i].att;
 		Bits bit = cv[i].bit;
 		// need to fir the bit method
-		oneBit = getBit(bit,hash[att]);
+		oneBit = getBits(bit,hash[att]);
         res = res | (oneBit << i);
 	}
 	free(vals);
