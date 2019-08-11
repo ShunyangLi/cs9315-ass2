@@ -154,9 +154,8 @@ Tuple getNextTuple(Query q)
 	    Bits unknwon = q->unknown;
 	    // Bits known = q->known;
 	    Reln r = q->rel;
-	    Count sd = (1<<depth(r)) + splitp(r);
 
-	    while (index < sd) {
+	    while (index < MAXBITS) {
 	        if (bitIsSet(unknwon, index)) {
 	            if (bitIsSet(hash, index)) {
 	                hash = unsetBit(hash, index);
