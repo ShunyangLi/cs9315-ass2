@@ -168,10 +168,7 @@ Tuple getNextTuple(Query q)
             index++;
 	    }
 
-//	    hash = getLower(hash,depth(r));
-//	    if (hash < splitp(r)) hash = getLower(hash,depth(r)+1);
-
-	    // printf("page: %u,%u\n",hash, q->curpage);
+	    // check the next page range, if greater than current, then replace
         if (hash > q->curpage && hash < npages(r)) {
 	        q->curpage = hash;
 	        q->is_ovflow = FALSE;

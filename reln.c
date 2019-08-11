@@ -119,13 +119,8 @@ void closeRelation(Reln r)
 	free(r);
 }
 
-// insert a new tuple into a relation
-// returns index of bucket where inserted
-// - index always refers to a primary data page
-// - the actual insertion page may be either a data page or an overflow page
-// returns NO_PAGE if insert fails completely
-// TODO: include splitting and file expansion
 
+// get the tuples number
 static int getTupleNum(Reln r) {
     int num = 0;
     Page page = getPage(r->data, r->sp);
@@ -140,6 +135,7 @@ static int getTupleNum(Reln r) {
     return num;
 }
 
+// get all the tuples from data page and overflow page
 static Tuple* getTuples(Reln r) {
     int nums = getTupleNum(r);
     Offset offset = 0;
@@ -170,6 +166,7 @@ static Tuple* getTuples(Reln r) {
     return tuple;
 }
 
+// clean the data page and the overflow page
 static void cleanPage(Reln reln) {
     Page newpage = newPage();
     Page page = getPage(reln->data,reln->sp);
@@ -246,6 +243,12 @@ static PageID insertTuplesToPage(Reln r, Tuple t, PageID p) {
 
 }
 
+// insert a new tuple into a relation
+// returns index of bucket where inserted
+// - index always refers to a primary data page
+// - the actual insertion page may be either a data page or an overflow page
+// returns NO_PAGE if insert fails completely
+// TODO: include splitting and file expansion
 
 PageID addToRelation(Reln r, Tuple t)
 {
@@ -264,10 +267,6 @@ PageID addToRelation(Reln r, Tuple t)
 
             // ready to split
             PageID newp = (1<<depth(r)) + r->sp;
-            // split page
-            // Page splitpage = getPage(r->data, r->sp);
-            // new page
-            // Page newpage = newPage();
 
             // add a new page into data page
             PageID id = addPage(r->data);
@@ -277,10 +276,10 @@ PageID addToRelation(Reln r, Tuple t)
                 PageID pageID = getLower(tupleHash(r, tuple[i]), depth(r)+1);
 
                 if (pageID == newp) {
-                	// addToPage(newpage, tuple[i]);
+                	// insert into new page
                 	insertTuplesToPage(r,tuple[i],id);
                 } else {
-                	// addToPage(splitpage, tuple[i]);
+                	// insert into split page
                 	insertTuplesToPage(r, tuple[i], r->sp);
                 }
             }
