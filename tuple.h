@@ -20,5 +20,6 @@ void tupleVals(Tuple t, char **vals);
 void freeVals(char **vals, int nattrs);
 Bool tupleMatch(Reln r, Tuple t1, Tuple t2);
 void tupleString(Tuple t, char *buf);
+Bits hashTuple(Reln r, Tuple t);
 
 #endif

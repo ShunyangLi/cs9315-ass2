@@ -21,7 +21,6 @@ struct QueryRep {
 	int     is_ovflow; // are we in the overflow pages?
 	Offset  curtup;    // offset of current tuple within page
 	//TODO:
-    Bits 	hashVal;
 	Tuple   queryString;
 	//Count   tupleNum;
 	PageID  overflow;
@@ -79,7 +78,6 @@ Query startQuery(Reln r, char *q)
 	// setup the unknown and knwon values
     query->known = knownValue;
     query->unknown = unknownValue;
-    query->hashVal = knownValue;
 
 
     Bits lowerValue = getLower(knownValue, DataDepth);
@@ -93,6 +91,7 @@ Query startQuery(Reln r, char *q)
 	query->overflow = ZERO;
 
 	// query->tupleNum = ZERO;
+	free(vals);
 	return query;
 }
 
@@ -119,8 +118,7 @@ Tuple getNextTuple(Query q)
 	// set the page according to whether overflow
 	// if (q->is_ovflow) page = getPage(ovflowFile(q->rel),q->curpage);
 
-	//  printf("overflow: %u, %u\n", q->overflow, q->curpage);
-
+	// get the page according to the is overflow
     Page page = getPage(dataFile(q->rel),q->curpage);
     if (q->is_ovflow) page = getPage(ovflowFile(q->rel), q->overflow);
 
@@ -130,9 +128,10 @@ Tuple getNextTuple(Query q)
 		Tuple tuple = pageData(page) + q->curtup;
 		Count tuplelength = tupLength(tuple);
 		q->curtup += tuplelength + ONE;
-        // printf("page: %u\n", q->curpage);
+
 		// if we can find the match, then we got the result
 		if (tupleMatch(q->rel, tuple,q->queryString)) {
+			free(page);
 			return tuple;
 		}
 	}
@@ -150,17 +149,17 @@ Tuple getNextTuple(Query q)
 	} else {
 
 	    int index  = 0;
-	    Bits hash = q->curpage;
-	    Bits unknwon = q->unknown;
+	    Bits nextPage = q->curpage;
+	    Bits unknownValue = q->unknown;
 	    // Bits known = q->known;
 	    Reln r = q->rel;
 
 	    while (index < MAXBITS) {
-	        if (bitIsSet(unknwon, index)) {
-	            if (bitIsSet(hash, index)) {
-	                hash = unsetBit(hash, index);
+	        if (bitIsSet(unknownValue, index)) {
+	            if (bitIsSet(nextPage, index)) {
+	                nextPage = unsetBit(nextPage, index);
 	            } else {
-	                hash = setBit(hash,index);
+	                nextPage = setBit(nextPage,index);
                     break;
 	            }
 	        }
@@ -168,16 +167,18 @@ Tuple getNextTuple(Query q)
 	    }
 
 	    // check the next page range, if greater than current, then replace
-        if (hash > q->curpage && hash < npages(r)) {
-	        q->curpage = hash;
+        if (nextPage > q->curpage && nextPage < npages(r)) {
+	        q->curpage = nextPage;
 	        q->is_ovflow = FALSE;
 	        q->overflow = ZERO;
 	        q->curtup = ZERO;
+	        free(page);
             return getNextTuple(q);
 	    }
 
     }
 
+	if (page != NULL) free(page);
 	return NULL;
 }
 

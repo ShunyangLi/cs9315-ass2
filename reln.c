@@ -126,11 +126,13 @@ static int getTupleNum(Reln r) {
     Page page = getPage(r->data, r->sp);
     num += pageNTuples(page);
     Offset overflow = pageOvflow(page);
+    // free(page);
+
     while (overflow != NO_PAGE) {
         page = getPage(r->ovflow, overflow);
         num += pageNTuples(page);
         overflow = pageOvflow(page);
-        free(page);
+        // free(page);
     }
     return num;
 }
@@ -147,10 +149,13 @@ static Tuple* getTuples(Reln r) {
         Tuple t = pageData(page) + offset;
         offset += tupLength(t) + 1;
         tuple[i] = t;
+        // free(t);
         i ++;
     }
 
     Offset overflow = pageOvflow(page);
+    // after get the overflow page then free it
+	// free(page);
     while (overflow != NO_PAGE) {
         page = getPage(r->ovflow, overflow);
         offset = 0;
@@ -158,9 +163,11 @@ static Tuple* getTuples(Reln r) {
             Tuple t = pageData(page) + offset;
             offset += tupLength(t) + 1;
             tuple[i] = t;
+            // free(t);
             i ++;
         }
         overflow = pageOvflow(page);
+        // free(page);
     }
 
     return tuple;
@@ -174,13 +181,16 @@ static void cleanPage(Reln reln) {
     pageSetOvflow(newpage, ov);
     putPage(reln->data, reln->sp, newpage);
 
+    // free(page);
     while (ov != NO_PAGE) {
         page = getPage(reln->ovflow, ov);
-
         newpage = newPage();
         pageSetOvflow(newpage,pageOvflow(page));
         putPage(reln->ovflow,ov, newpage);
         ov = pageOvflow(page);
+        // free(page);
+        // free(newpage);
+
     }
 }
 
@@ -273,7 +283,7 @@ PageID addToRelation(Reln r, Tuple t)
 
             // try to add all the tuples
             for (int i = 0;i < num; i ++) {
-                PageID pageID = getLower(tupleHash(r, tuple[i]), depth(r)+1);
+                PageID pageID = getLower(hashTuple(r, tuple[i]), depth(r)+1);
 
                 if (pageID == newp) {
                 	// insert into new page
@@ -290,6 +300,7 @@ PageID addToRelation(Reln r, Tuple t)
                 r->sp = ZERO;
                 r->depth ++;
             }
+            free(tuple);
 	    }
 	}
 

@@ -115,6 +115,37 @@ Bits tupleHash(Reln r, Tuple t)
 	return res;
 }
 
+// set a tuple hashing without print
+Bits hashTuple(Reln r, Tuple t) {
+	Count nvals = nattrs(r);
+	char **vals = malloc(nvals*sizeof(char *));
+	assert(vals != NULL);
+	tupleVals(t, vals);
+
+	// hash for each attr, and make hash
+	Bits hash[nvals + 1];
+	int i = 0;
+	for (i = 0; i < nvals; i ++) {
+		hash[i] = hash_any((unsigned char *)vals[i],strlen(vals[i]));
+	}
+
+	// convert reln into ChVecItem
+	Bits res = 0;
+	Bits oneBit;
+	ChVecItem *cv = chvec(r);
+
+	// check bits
+	for (i = 0; i < MAXBITS; i ++ ){
+		Bits att = cv[i].att;
+		Bits bit = cv[i].bit;
+		// need to fir the bit method
+		oneBit = getBits(bit,hash[att]);
+		res = res | (oneBit << i);
+	}
+	free(vals);
+	return res;
+}
+
 // compare two tuples (allowing for "unknown" values)
 
 Bool tupleMatch(Reln r, Tuple t1, Tuple t2)
