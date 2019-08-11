@@ -22,8 +22,6 @@
 #define OK          0
 #define TRUE        1
 #define FALSE       0
-#define ZERO        0x0
-#define ONE         0x1
 
 
 typedef char Bool;

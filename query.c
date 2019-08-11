@@ -56,13 +56,13 @@ Query startQuery(Reln r, char *q)
 	tupleVals(q, vals);
 
 	Bits hash[nvals + 1];
-	Bits knownValue = ZERO;
-	Bits unknownValue = ZERO;
+	Bits knownValue = 0;
+	Bits unknownValue = 0;
 	int i = 0;
 
 	// hash all the value, if 0, then was unknown, otherwise is known
 	for (i = 0; i < nvals; i ++) {
-		if (!strcmp(vals[i], "?")) hash[i] = ZERO;
+		if (!strcmp(vals[i], "?")) hash[i] = 0;
 		else hash[i] = hash_any((unsigned char *)vals[i],strlen(vals[i]));
 	}
 
@@ -81,14 +81,14 @@ Query startQuery(Reln r, char *q)
 
 
     Bits lowerValue = getLower(knownValue, DataDepth);
-    Bits lowerNext = getLower(knownValue, DataDepth + ONE);
+    Bits lowerNext = getLower(knownValue, DataDepth + 1);
 
     // printf("here: %u, %u\n",lowerValue,lowerNext);
     // get the page values
     pageId = (lowerValue < splitp(r))?lowerNext:lowerValue;
 
 	query->curpage = pageId;
-	query->overflow = ZERO;
+	query->overflow = 0;
 
 	// query->tupleNum = ZERO;
 	free(vals);
@@ -127,7 +127,7 @@ Tuple getNextTuple(Query q)
 	for (;q->curtup < offset;) {
 		Tuple tuple = pageData(page) + q->curtup;
 		Count tuplelength = tupLength(tuple);
-		q->curtup += tuplelength + ONE;
+		q->curtup += tuplelength + 1;
 
 		// if we can find the match, then we got the result
 		if (tupleMatch(q->rel, tuple,q->queryString)) {
@@ -141,7 +141,7 @@ Tuple getNextTuple(Query q)
         q->is_ovflow = TRUE;
 		// q->curpage = pageOvflow(page);
 		q->overflow = pageOvflow(page);
-		q->curtup = ZERO;
+		q->curtup = 0;
 		// q->tupleNum = 0;
 		// printf("OverFlow\n\n");
 		// iterator again
@@ -170,8 +170,8 @@ Tuple getNextTuple(Query q)
         if (nextPage > q->curpage && nextPage < npages(r)) {
 	        q->curpage = nextPage;
 	        q->is_ovflow = FALSE;
-	        q->overflow = ZERO;
-	        q->curtup = ZERO;
+	        q->overflow = 0;
+	        q->curtup = 0;
 	        free(page);
             return getNextTuple(q);
 	    }
