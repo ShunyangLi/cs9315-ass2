@@ -282,7 +282,8 @@ PageID addToRelation(Reln r, Tuple t)
             PageID id = addPage(r->data);
 
             // try to add all the tuples
-            for (int i = 0;i < num; i ++) {
+            int i  = 0;
+            for (i = 0;i < num; i ++) {
                 PageID pageID = getLower(hashTuple(r, tuple[i]), depth(r)+1);
 
                 if (pageID == newp) {
