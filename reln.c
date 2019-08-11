@@ -298,7 +298,7 @@ PageID addToRelation(Reln r, Tuple t)
             r->sp++;
             r->npages++ ;
             if (r->sp == (1<<(depth(r)))) {
-                r->sp = ZERO;
+                r->sp = 0;
                 r->depth ++;
             }
             free(tuple);
