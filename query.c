@@ -131,8 +131,7 @@ Tuple getNextTuple(Query q)
 
 		// if we can find the match, then we got the result
 		if (tupleMatch(q->rel, tuple,q->queryString)) {
-			free(page);
-			return tuple;
+			return copyString(tuple);
 		}
 	}
 
